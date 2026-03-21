@@ -1,4 +1,4 @@
-import { spawn } from 'bun';
+import { spawn } from 'child_process';
 import { existsSync, chmodSync } from 'fs';
 import { System } from './system.ts';
 
@@ -41,12 +41,23 @@ export function isGradleProject(): boolean {
 }
 
 async function buildGradle(): Promise<boolean> {
-  const cmd = getTargetCommand('gradle');
-  const proc = spawn([cmd, 'clean', 'build', '-x', 'test', '-x', 'pmdMain'], {
-    stdout: 'inherit',
-    stderr: 'inherit',
+  return new Promise((resolve) => {
+    const cmd = getTargetCommand('gradle');
+    const isWindows = System.isWindows;
+    const proc = spawn(cmd, ['clean', 'build', '-x', 'test', '-x', 'pmdMain'], {
+      stdio: 'inherit',
+      shell: isWindows, // Use shell on Windows to resolve .bat/.cmd files and find executables in PATH
+    });
+
+    proc.on('close', (code) => {
+      resolve(code === 0);
+    });
+
+    proc.on('error', (err) => {
+      console.error(`Gradle build error: ${err.message}`);
+      resolve(false);
+    });
   });
-  return (await proc.exited) === 0;
 }
 
 export function isMavenProject(): boolean {
@@ -54,12 +65,23 @@ export function isMavenProject(): boolean {
 }
 
 async function buildMaven(): Promise<boolean> {
-  const cmd = getTargetCommand('maven');
-  const proc = spawn([cmd, 'clean', 'package', '-DskipTests'], {
-    stdout: 'inherit',
-    stderr: 'inherit',
+  return new Promise((resolve) => {
+    const cmd = getTargetCommand('maven');
+    const isWindows = System.isWindows;
+    const proc = spawn(cmd, ['clean', 'package', '-DskipTests'], {
+      stdio: 'inherit',
+      shell: isWindows
+    });
+
+    proc.on('close', (code) => {
+      resolve(code === 0);
+    });
+
+    proc.on('error', (err) => {
+      console.error(`Maven build error: ${err.message}`);
+      resolve(false);
+    });
   });
-  return (await proc.exited) === 0;
 }
 
 /**

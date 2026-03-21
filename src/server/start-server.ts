@@ -1,4 +1,4 @@
-import { spawn } from 'bun';
+import { spawn } from 'child_process';
 import { join } from 'path';
 import { existsSync, statSync, chmodSync } from 'fs';
 import { DEFAULT_DEBUG_PORT, SERVER_SCRIPT } from '../constants.ts';
@@ -49,18 +49,26 @@ export async function startServer(
 
   // NOTE: Certain artifacts require the OS to be identified as Linux due to their internal 
   // configuration, even when running on macOS or other Unix-like systems.
-  const args: string[] = isWin ? [] : [SERVER_SCRIPT.OS_FLAG];
+  const args: string[] = isWin ? [] : ['-Dos.name=Linux'];
 
-  const proc = spawn([scriptPath, ...args], {
-    cwd: binDir,
-    stdout: 'inherit',
-    stderr: 'inherit',
-    stdin: 'inherit',
-    env: {
-      ...process.env,
-      JAVA_OPTS: javaOpts
-    }
+  return new Promise<void>((resolve, reject) => {
+    const proc = spawn(scriptPath, args, {
+      cwd: binDir,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        JAVA_OPTS: javaOpts
+      },
+      shell: isWin // Modern practice for `.bat` and script execution safely
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0 || code === null) resolve();
+      else reject(new Error(`Server process exited with code ${code}`));
+    });
+
+    proc.on('error', (err) => {
+      reject(err);
+    });
   });
-
-  await proc.exited;
 }

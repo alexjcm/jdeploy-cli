@@ -1,5 +1,6 @@
 import { join, basename, extname } from 'path';
 import { readdirSync, rmSync, existsSync } from 'fs';
+import { copyFile, writeFile } from 'fs/promises';
 import { Artifact } from './find-artifact.ts';
 import { SERVER_PATHS, DEPLOYMENT_MARKERS } from '../constants.ts';
 
@@ -42,11 +43,10 @@ export async function deployArtifact(artifact: Artifact, serverHome: string, isR
     rmSync(`${destPath}${DEPLOYMENT_MARKERS.SKIPDEPLOY}`,  { force: true });
     rmSync(`${destPath}${DEPLOYMENT_MARKERS.PENDING}`,     { force: true });
 
-    const file = Bun.file(artifact.path);
-    await Bun.write(destPath, file);
+    await copyFile(artifact.path, destPath);
     
     // The JBoss/Wildfly server will delete this .dodeploy marker and create either .deployed or .failed
-    await Bun.write(`${destPath}${DEPLOYMENT_MARKERS.DODEPLOY}`, '');
+    await writeFile(`${destPath}${DEPLOYMENT_MARKERS.DODEPLOY}`, '', 'utf-8');
     
     // If the server is offline, skip polling since JBoss isn't there to process the marker yet
     if (!isRunning) return true;
@@ -61,7 +61,7 @@ export async function deployArtifact(artifact: Artifact, serverHome: string, isR
       if (existsSync(deployedMarker)) return true;
       if (existsSync(failedMarker)) return false;
       
-      await Bun.sleep(1000);
+      await new Promise(r => setTimeout(r, 1000));
       attempts++;
     }
     

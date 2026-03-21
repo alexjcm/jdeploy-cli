@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -25,7 +26,7 @@ export async function saveConfig(config: Config): Promise<void> {
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
-  await Bun.write(CONFIG_FILE, JSON.stringify(config, null, 2));
+  await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
 }
 
 /**

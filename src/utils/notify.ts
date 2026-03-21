@@ -1,4 +1,4 @@
-import { spawn } from 'bun';
+import { spawn } from 'child_process';
 import { System } from '../core/system.ts';
 
 /**
@@ -10,8 +10,7 @@ export function notifySuccess(message: string, title = 'jdeploy-cli'): void {
 
   const script = `display notification "${message}" with title "${title}" sound name "Glass"`;
   
-  spawn(['osascript', '-e', script], {
-    stdout: 'ignore',
-    stderr: 'ignore',
+  spawn('osascript', ['-e', script], {
+    stdio: 'ignore'
   });
 }

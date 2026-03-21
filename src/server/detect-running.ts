@@ -1,15 +1,25 @@
-import { spawn } from 'bun';
-import { System } from '../core/system.ts';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export async function isServerRunning(): Promise<boolean> {
-  if (System.isWindows) {
-    const proc = spawn(['tasklist'], { stdout: 'pipe' });
-    const output = await new Response(proc.stdout).text();
-    const lc = output.toLowerCase();
-    return lc.includes('jboss') || lc.includes('wildfly') || lc.includes('standalone');
-  } else {
-    const proc = spawn(['pgrep', '-f', 'standalone'], { stdout: 'pipe' });
-    const exitCode = await proc.exited;
-    return exitCode === 0;
+  const platform = process.platform;
+  
+  try {
+    if (platform === 'win32') {
+      // Windows: filtered tasklist (JBoss/Wildfly/Standalone)
+      // Utilizing standard promisified exec for clean asynchronous shell operations
+      const { stdout } = await execAsync('tasklist');
+      const lc = stdout.toLowerCase();
+      return lc.includes('jboss') || lc.includes('wildfly') || lc.includes('standalone');
+    } else {
+      // Linux / macOS: pgrep -f standalone
+      await execAsync('pgrep -f standalone');
+      return true;
+    }
+  } catch (error) {
+    // If process throws (like pgrep returning exit code 1 because it found nothing), we assume it's not running
+    return false;
   }
 }

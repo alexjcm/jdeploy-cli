@@ -1,4 +1,4 @@
-import { Glob } from 'bun';
+import sync from 'fast-glob';
 import { statSync } from 'fs';
 import { basename } from 'path';
 import { ARTIFACT_EXTENSIONS } from '../constants.ts';
@@ -14,24 +14,20 @@ export async function findArtifacts(): Promise<Artifact[]> {
     // Gradle
     `build/libs/*${ext}`,
     `*/build/libs/*${ext}`,
-    // Maven (remove these two lines to drop Maven artifact scanning)
+    // Maven
     `target/*${ext}`,
     `*/target/*${ext}`,
   ]);
 
-  const artifacts: Artifact[] = [];
-  
-  for (const pattern of patterns) {
-    const glob = new Glob(pattern);
-    for (const path of glob.scanSync('.')) {
-      const stats = statSync(path);
-      artifacts.push({
-        path,
-        name: basename(path),
-        size: stats.size,
-      });
-    }
-  }
+  const paths = await sync(patterns, { onlyFiles: true });
+  const artifacts: Artifact[] = paths.map(path => {
+    const stats = statSync(path);
+    return {
+      path,
+      name: basename(path),
+      size: stats.size,
+    };
+  });
 
   const uniqueArtifacts = Array.from(new Map(artifacts.map(a => [a.path, a])).values());
   
