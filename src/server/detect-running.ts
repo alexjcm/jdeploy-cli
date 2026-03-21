@@ -18,7 +18,7 @@ export async function isServerRunning(): Promise<boolean> {
       await execAsync('pgrep -f standalone');
       return true;
     }
-  } catch (error) {
+  } catch {
     // If process throws (like pgrep returning exit code 1 because it found nothing), we assume it's not running
     return false;
   }

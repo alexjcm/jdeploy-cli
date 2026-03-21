@@ -2,7 +2,12 @@
   "name": "jdeploy-cli",
   "module": "index.ts",
   "type": "module",
-  "private": true,
+  "version": "1.0.0",
+  "description": "CLI tool to deploy EAR/WAR artifacts to JBoss or Wildfly with automatic build detection.",
+  "author": "Alex JCM",
+  "license": "MIT",
+  "keywords": ["jboss", "wildfly", "deploy", "cli", "automation", "java", "maven", "gradle"],
+  "files": ["dist", "README.md", "LICENSE", "package.json"],
   "bin": {
     "jdeploy-cli": "./src/index.ts"
   },
@@ -11,6 +16,7 @@
     "dev": "bun --watch run src/index.ts",
     "build": "tsup",
     "local:link": "bun link",
+    "prepublishOnly": "bun run build && echo 'Ready to publish! Remember to point bin to ./dist/index.js if publishing to public NPM.'",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
