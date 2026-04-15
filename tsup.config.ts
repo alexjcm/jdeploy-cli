@@ -14,5 +14,5 @@ export default defineConfig({
     js: '#!/usr/bin/env node',
   },
   noExternal: [/(.*)/],
-  target: 'node24',
+  target: 'node20',
 });

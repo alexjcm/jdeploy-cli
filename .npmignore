@@ -3,6 +3,5 @@ src/
 tsup.config.ts
 tsconfig.json
 eslint.config.*
-bun.lock
 .env
 demo.gif

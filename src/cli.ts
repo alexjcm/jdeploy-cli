@@ -4,7 +4,7 @@ import { log } from './ui/logger.ts';
 import { AppServer, LastDeployment } from './servers.ts';
 import { EXIT_CODES, ACTIONS, SERVER_MODES, NAV, DeployAction, ServerMode } from './constants.ts';
 import { getConfig, saveConfig } from './config/config-manager.ts';
-import { selectArtifact, selectAction, selectServerMode, selectServer, deleteServerFlow, addNewServerFlow, confirmReuseDeployment, CancelToServerSelect } from './ui/prompts.ts';
+import { selectArtifact, selectAction, selectServerMode, selectServer, deleteServerFlow, addNewServerFlow, confirmReuseDeployment, CancelToServerSelect, getActionLabel } from './ui/prompts.ts';
 import { isServerRunning } from './server/detect-running.ts';
 import { cleanServerTemp } from './server/clean-temp.ts';
 import { startServer } from './server/start-server.ts';
@@ -88,7 +88,8 @@ async function main() {
     if (isFirstAppRun && lastDep) {
       const server = config.servers.find(s => s.name === lastDep.serverName);
       if (server) {
-        const reuse = await confirmReuseDeployment(lastDep);
+        const isRunningOnBoot = await isServerRunning();
+        const reuse = await confirmReuseDeployment(lastDep, { serverRunning: isRunningOnBoot });
         if (reuse) {
           selectedServer = server;
           const buildTool = detectBuildTool();
@@ -162,10 +163,14 @@ async function main() {
         mode = initialReuse.mode;
         port = initialReuse.port;
         reused = true;
-        log.info(`Reusing: ${action} -> ${artifact?.name || 'server only'} on ${selectedServer!.name}`);
       }
       firstIteration = false;
       const buildTool = reused ? null : detectBuildTool();
+      const isRunning = await isServerRunning();
+
+      if (reused) {
+        log.info(`Reusing: ${getActionLabel(action!, { serverRunning: isRunning })} -> ${artifact?.name || 'server only'} on ${selectedServer!.name}`);
+      }
 
       if (!reused) {
         const currentArtifacts = await findArtifacts(!!buildTool);
@@ -174,7 +179,8 @@ async function main() {
           currentArtifacts.length === 0 ? ACTIONS.BUILD_DEPLOY : undefined,
           {
             canBuild: !!buildTool,
-            canDeploy: currentArtifacts.length > 0
+            canDeploy: currentArtifacts.length > 0,
+            serverRunning: isRunning
           }
         );
 
@@ -183,8 +189,6 @@ async function main() {
       } else {
         action = action!;
       }
-
-      const isRunning = await isServerRunning();
 
       if (action === ACTIONS.START_ONLY) {
         if (isRunning) {
@@ -218,7 +222,9 @@ async function main() {
             action: ACTIONS.START_ONLY,
             artifactName: 'server-only',
             mode: mode!,
-            ...((port || selectedServer.lastDebugPort) ? { port: (port || selectedServer.lastDebugPort) } : {})
+            ...(mode === SERVER_MODES.DEBUG && (port || selectedServer.lastDebugPort)
+              ? { port: (port || selectedServer.lastDebugPort) }
+              : {})
           };
 
           // Explicitly sync the overall global state bypass tracking
@@ -297,12 +303,15 @@ async function main() {
 
               // Save successful deployment to project memory
               if (!config.lastDeployments) config.lastDeployments = {};
+              const deploymentMode = mode || selectedServer.lastServerMode || SERVER_MODES.NORMAL;
               config.lastDeployments[cwd] = {
                 serverName: selectedServer.name,
                 action: action === ACTIONS.BUILD_DEPLOY ? ACTIONS.BUILD_DEPLOY : ACTIONS.DEPLOY_ONLY,
                 artifactName: artifact!.name,
-                mode: mode || selectedServer.lastServerMode || SERVER_MODES.NORMAL,
-                ...( (port || selectedServer.lastDebugPort) ? { port: (port || selectedServer.lastDebugPort) } : {} )
+                mode: deploymentMode,
+                ...(deploymentMode === SERVER_MODES.DEBUG && (port || selectedServer.lastDebugPort)
+                  ? { port: (port || selectedServer.lastDebugPort) }
+                  : {})
               };
               
               // Explicitly sync the overall global state bypass tracking

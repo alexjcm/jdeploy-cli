@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - Unreleased
+
+### Changed
+- Upgraded TypeScript to 6 and updated TypeScript ESLint compatibility to the TS6-supported range.
+- Updated action labels to clearer UX wording (`Build, copy & start`, `Copy & start`, `Start server`).
+- Made action labels context-aware when the server is already running (`Build, copy & deploy`, `Copy & deploy`).
+
+### Fixed
+- Fixed reuse mode formatting to avoid confusing values like `normal:5005` and only show debug port when applicable.
+
 ## [1.2.0] - 2026-04-08
 
 ### Added

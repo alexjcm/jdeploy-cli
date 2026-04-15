@@ -18,8 +18,7 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: {
-        ...globals.node,
-        Bun: "readonly"
+        ...globals.node
       },
       parserOptions: {
         projectService: true,

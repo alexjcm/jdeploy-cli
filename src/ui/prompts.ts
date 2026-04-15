@@ -8,6 +8,22 @@ export class CancelToServerSelect extends Error {
   constructor() { super('User cancelled to server select'); }
 }
 
+export function getActionLabel(
+  action: DeployAction,
+  opts: { serverRunning?: boolean } = {}
+): string {
+  const serverRunning = opts.serverRunning ?? false;
+
+  switch (action) {
+    case ACTIONS.BUILD_DEPLOY:
+      return serverRunning ? 'Build, copy & deploy' : 'Build, copy & start';
+    case ACTIONS.DEPLOY_ONLY:
+      return serverRunning ? 'Copy & deploy' : 'Copy & start';
+    case ACTIONS.START_ONLY:
+      return 'Start server';
+  }
+}
+
 export async function addNewServerFlow(existingConfig: Config): Promise<AppServer> {
   const result = await group(
     {
@@ -163,12 +179,13 @@ export async function selectArtifact(artifacts: Artifact[], lastArtifactName?: s
 
 export async function selectAction(
   initialValue?: DeployAction,
-  options: { canBuild: boolean; canDeploy: boolean } = { canBuild: true, canDeploy: true }
+  options: { canBuild: boolean; canDeploy: boolean; serverRunning?: boolean } = { canBuild: true, canDeploy: true }
 ): Promise<DeployAction | typeof NAV.BACK> {
-  const menuOptions = [
-    { value: ACTIONS.BUILD_DEPLOY, label: 'build + copy + deploy' },
-    { value: ACTIONS.DEPLOY_ONLY, label: 'copy + deploy' },
-    { value: ACTIONS.START_ONLY, label: 'start server only' },
+  const serverRunning = options.serverRunning ?? false;
+  const menuOptions: { value: DeployAction | typeof NAV.BACK; label: string }[] = [
+    { value: ACTIONS.BUILD_DEPLOY, label: getActionLabel(ACTIONS.BUILD_DEPLOY, { serverRunning }) },
+    { value: ACTIONS.DEPLOY_ONLY, label: getActionLabel(ACTIONS.DEPLOY_ONLY, { serverRunning }) },
+    ...(serverRunning ? [] : [{ value: ACTIONS.START_ONLY, label: getActionLabel(ACTIONS.START_ONLY) }]),
     { value: NAV.BACK, label: '← Back (change server)' },
   ];
 
@@ -243,15 +260,22 @@ export async function selectServerMode(
   };
 }
 
-export async function confirmReuseDeployment(last: LastDeployment): Promise<boolean> {
-  const portInfo = last.port ? `:${last.port}` : '';
+export async function confirmReuseDeployment(
+  last: LastDeployment,
+  opts: { serverRunning?: boolean } = {}
+): Promise<boolean> {
+  const actionLabel = getActionLabel(last.action, { serverRunning: opts.serverRunning ?? false });
+  const modeLabel = last.mode === SERVER_MODES.DEBUG
+    ? `Debug${last.port ? ` (${last.port})` : ''}`
+    : 'Normal';
+
   const result = await select({
     message: 'Reuse last deployment for this project?',
     options: [
       {
         value: true,
         label: `Yes, reuse last settings`,
-        hint: `[Server: ${last.serverName}, Action: ${last.action}, Artifact: ${last.artifactName}, Mode: ${last.mode}${portInfo}]`
+        hint: `[Server: ${last.serverName}, Action: ${actionLabel}, Artifact: ${last.artifactName}, Mode: ${modeLabel}]`
       },
       { value: false, label: 'No, skip to manual flow' },
     ],
