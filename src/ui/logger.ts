@@ -26,4 +26,5 @@ export const log = {
   
   // note() is reserved for summary boxes/next steps
   note: (msg: string, title?: string) => note(msg, title),
+  dim: (msg: string) => `${colors.dim}${msg}${colors.reset}`,
 };

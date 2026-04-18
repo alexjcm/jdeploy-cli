@@ -7,6 +7,7 @@ import { getConfig, saveConfig } from './config/config-manager.ts';
 import { selectArtifact, selectAction, selectServerMode, selectServer, deleteServerFlow, addNewServerFlow, confirmReuseDeployment, CancelToServerSelect, getActionLabel } from './ui/prompts.ts';
 import { isServerRunning } from './server/detect-running.ts';
 import { cleanServerTemp } from './server/clean-temp.ts';
+import { listDeployedArtifacts } from './server/list-deployed-artifacts.ts';
 import { startServer } from './server/start-server.ts';
 import { buildProject, detectBuildTool } from './core/build-project.ts';
 import { findArtifacts, Artifact } from './core/find-artifact.ts';
@@ -20,6 +21,23 @@ function getCliVersion(): string {
   } catch {
     return 'unknown';
   }
+}
+
+function showServerOnlyArtifacts(localArtifacts: Artifact[], serverHome: string): void {
+  const deployedArtifacts = listDeployedArtifacts(serverHome);
+
+  if (deployedArtifacts.length === 0) {
+    return;
+  }
+
+  const localArtifactNames = new Set(localArtifacts.map((artifact) => artifact.name));
+  const artifactsOnlyOnServer = deployedArtifacts.filter((artifactName) => !localArtifactNames.has(artifactName));
+
+  if (artifactsOnlyOnServer.length === 0) {
+    return;
+  }
+
+  log.message(log.dim(`Artifacts currently on server: ${artifactsOnlyOnServer.join(', ')}`));
 }
 
 async function main() {
@@ -88,7 +106,7 @@ async function main() {
     if (isFirstAppRun && lastDep) {
       const server = config.servers.find(s => s.name === lastDep.serverName);
       if (server) {
-        const isRunningOnBoot = await isServerRunning();
+        const isRunningOnBoot = await isServerRunning(server.home);
         const reuse = await confirmReuseDeployment(lastDep, { serverRunning: isRunningOnBoot });
         if (reuse) {
           selectedServer = server;
@@ -166,7 +184,7 @@ async function main() {
       }
       firstIteration = false;
       const buildTool = reused ? null : detectBuildTool();
-      const isRunning = await isServerRunning();
+      const isRunning = await isServerRunning(selectedServer!.home);
 
       if (reused) {
         log.info(`Reusing: ${getActionLabel(action!, { serverRunning: isRunning })} -> ${artifact?.name || 'server only'} on ${selectedServer!.name}`);
@@ -186,6 +204,7 @@ async function main() {
 
         if (actionResult === NAV.BACK) continue serverLoop;
         action = actionResult;
+        showServerOnlyArtifacts(currentArtifacts, selectedServer.home);
       } else {
         action = action!;
       }
@@ -232,9 +251,9 @@ async function main() {
           await saveConfig(config);
 
           await startServer(selectedServer.home, mode === SERVER_MODES.DEBUG, port, selectedServer.memoryProfile);
-          log.success('Server process finished.');
+          log.success(`Server stopped ${log.dim(`(${selectedServer.name})`)}`);
         } catch (err) {
-          log.error('Failed to start server', err instanceof Error ? err.message : String(err));
+          log.error(`Failed to start server ${log.dim(`(${selectedServer.name})`)}`, err instanceof Error ? err.message : String(err));
         }
         continue;
       }
@@ -318,7 +337,9 @@ async function main() {
               config.lastServer = selectedServer.name;
               await saveConfig(config);
 
-              return isRunning ? 'Deployment validated (.deployed detected)' : 'Artifact transferred successfully (ready for boot)';
+              return isRunning
+                ? 'Deployment validated (.deployed detected)'
+                : log.dim('Artifact transferred successfully (ready for boot)');
             },
           },
         ]);
@@ -344,9 +365,9 @@ async function main() {
           await saveConfig(config);
 
           await startServer(selectedServer.home, mode === SERVER_MODES.DEBUG, port, selectedServer.memoryProfile);
-          log.success('Server process finished.');
+          log.success(`Server stopped ${log.dim(`(${selectedServer.name})`)}`);
         } catch (err) {
-          log.error('Failed to start server', err instanceof Error ? err.message : String(err));
+          log.error(`Failed to start server ${log.dim(`(${selectedServer.name})`)}`, err instanceof Error ? err.message : String(err));
         }
       }
     }
